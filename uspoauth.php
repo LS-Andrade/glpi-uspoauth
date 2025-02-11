@@ -1,126 +1,79 @@
 <?php
-session_start();
-require_once ('config.php');
-?>
-<!--
-	Consumer OAuth basedo no exemplo googledocs.php da biblioteca oauth-php.
-	Site: http://code.google.com/p/oauth-php/
-	Acessado em: 2/10/2012
--->
-<html>
-<head>
-<script language=javascript>
-	function refreshWindow(){
-		window.location.assign('<?= $url_app ?>');
-        self.close();
-	}
-</script>
-</head>
-<body>
-<?php
-/**
- * oauth-php: Example OAuth client for accessing Google Docs
- *
- * @author BBG
- *
- * 
- * The MIT License
- * 
- * 
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- * 
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- * 
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
-include_once "library/OAuthStore.php";
-include_once "library/OAuthRequester.php";
+	session_start();
+	require_once ('config.php');
+	require_once __DIR__.'/vendor/autoload.php';
+	
+	use Uspdev\Senhaunica\Senhaunica;
 
-//Usuario e senha ambiente de produção
-define("CONSUMER_KEY", $consumer_key);
-define("CONSUMER_SECRET", $consumer_secret);
+	$clientCredentials = [
+		'identifier' => $consumer_key,
+		'secret' => $consumer_secret,
+		'callback_id' => $callback_id,
+	];
 
-// url servidor de produção
-define("OAUTH_HOST", "https://uspdigital.usp.br");
-
-$curl_options = array();
-
-define("REQUEST_TOKEN_URL", OAUTH_HOST . "/wsusuario/oauth/request_token");
-define("AUTHORIZE_URL", OAUTH_HOST . "/wsusuario/oauth/authorize");
-define("ACCESS_TOKEN_URL", OAUTH_HOST . "/wsusuario/oauth/access_token");
-
-define('OAUTH_TMP_DIR', function_exists('sys_get_temp_dir') ? sys_get_temp_dir() : realpath($_ENV["TMP"]));
-
-//  Init the OAuthStore
-$options = array(
-	'consumer_key' => CONSUMER_KEY, 
-	'consumer_secret' => CONSUMER_SECRET,
-	'server_uri' => OAUTH_HOST,
-	'request_token_uri' => REQUEST_TOKEN_URL,
-	'authorize_uri' => AUTHORIZE_URL,
-	'access_token_uri' => ACCESS_TOKEN_URL
-);
-// Note: do not use "Session" storage in production. Prefer a database
-// storage, such as MySQL.
-
-OAuthStore::instance("Session", $options);
-
-try
-{
-	//  STEP 1:  If we do not have an OAuth token yet, go get one
-	if (empty($_GET["oauth_token"]))
-	{	
-		// get a request token
-		$tokenResultParams = OAuthRequester::requestRequestToken(CONSUMER_KEY, null, null, 'POST', null, $curl_options);
+	if(Senhaunica::login($clientCredentials)){
+		$loginUSP = Uspdev\Senhaunica\Senhaunica::getUserDetail();
 		
-		$_SESSION["oauth_token"] = $tokenResultParams['token'];
+		include("../inc/includes.php");
 		
-		//  redirect to the authorization page, they will redirect back
-		header("Location: " . AUTHORIZE_URL . "?oauth_token=" . $tokenResultParams['token']."&callback_id=".$callback_id);
-	}
-	else {
-		//  STEP 2:  Get an access token
-		$oauthToken = $_GET["oauth_token"];		
-		$oauthVerifier = $_GET["oauth_verifier"];				
-//		$tokenResultParams = $_GET;				
-//		$_GET['oauth_verifier'] = $oauthVerifier;
+		$auth = new Auth();
+		$user = new User();
+		
+		$vinculo = False;
+		foreach ($loginUSP["vinculo"] as $key){
+			if (($key["siglaUnidade"] == $unidade))
+				$vinculo = True;		
+		}
+		
+		if($vinculo) {
+			//adicionando o usuario na base do glpi
 				
-		try {
-		    OAuthRequester::requestAccessToken(CONSUMER_KEY, $oauthToken, 0, 'POST', $_GET, $curl_options);
+			//Criação da senha
+			$passwd_glpi = $loginUSP["loginUsuario"].$passwd_salt.explode(" ",$loginUSP["nomeUsuario"])[0];
+		
+			//Tratar e-mail vazio
+			isset($loginUSP["emailUspUsuario"]) ? $email = $loginUSP["emailUspUsuario"] : $email = $loginUSP["emailPrincipalUsuario"];
+			 
+			//Array enviado pelo formulario "Adicionar usuário"
+			$dadosUsuario = array(
+				'name' => $loginUSP["loginUsuario"],				
+				'realname' => explode(" ",$loginUSP["nomeUsuario"])[count(explode(" ",$loginUSP["nomeUsuario"]))-1],		
+				'firstname' => explode(" ",$loginUSP["nomeUsuario"])[0],			
+				'password' => $passwd_glpi,			
+				'password2' => $passwd_glpi,			
+				'is_active' => '1',		
+				'_useremails' => array(
+					$email
+				),
+				'begin_date' => '',
+				'end_date' => '',
+				'phone' => '',
+				'authtype' => '1',
+				'mobile' => '',
+				'usercategories_id' => '0',
+				'phone2' => '',
+				'comment' => '',
+				'registration_number' => '',
+				'usertitles_id' => '0',
+				'_is_recursive' => '0',
+				'_profiles_id' => '1',
+				'_entities_id' => '0',
+				'add' => "<i class=\'fas fa-plus\'></i> Adicionar",
+				'_glpi_csrf_token' => '',
+			);
+			$user->add($dadosUsuario);
+		
+			//autenticando o usuario no glpi				
+			$auth->login($loginUSP["loginUsuario"],$passwd_glpi);
+			Auth::redirectIfAuthenticated();
 		}
-		catch (OAuthException2 $e)
-		{
-	 	    echo"<h2 style='color:red;'>Erro na solicitação, favor tentar em outro navegador</h2><br/>";
-		    var_dump($e);
-		    return;
+		else{
+			//Se achar necessário crie um novo código de erro no index.php do GLPI na linha 113
+			$url_app = $url_app."?redirect=1&error=3";
+			header("Location: $url_app");
 		}
 
-		$request = new OAuthRequester(OAUTH_HOST . "/wsusuario/oauth/usuariousp", 'POST');
-		$result = $request->doRequest(null, $curl_options);
-		if ($result['code'] == 200) {			
-			require_once ('autenticacao.php');	
-		}
-		else {
-			echo 'Error';
-		}		
+	}else{
+		echo "Falha no login por senha única, tente novamente. <a href='{$url_app}'>Voltar para a página de Login</a>" ;
 	}
-}
-catch(OAuthException2 $e) {
-	echo "OAuthException:  " . $e->getMessage();
-	var_dump($e);
-}
 ?>
-</body> 
-</html>

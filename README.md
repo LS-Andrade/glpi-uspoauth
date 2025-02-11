@@ -1,7 +1,7 @@
 # glpi-uspoauth
 Gambiarra para fazer o GLPI autenticar no USP oAuth. Um dia vira plugin
 
-**Testado na versão 9.5.4 do GLPI**
+**Testado na versão 10.0.17 do GLPI**
 
 &nbsp;
 
@@ -10,20 +10,24 @@ Gambiarra para fazer o GLPI autenticar no USP oAuth. Um dia vira plugin
 Para usar a autenticação do USP oAuth com o GLPI faça o seguinte:
 
 - Cadastrar uma entrada no USP oAuth
+  - A url de retorno deverá direcionar para o arquivo **glpi-uspoauth/uspoauth.php**
 
 - Entrar na pasta do GLPI e clonar o projeto
 
 ```
 git clone git@github.com:stifdrp/glpi-uspoauth.git
 ```
+
+- Faça a instalação da biblioteca de senha única via composer. Para mais detalhes acesse: *[uspdev/senhaunica](https://github.com/uspdev/senhaunica)*.
+
+```
+composer require uspdev/senhaunica:2.0
+```
  
-- Inserir no index.php do GLPI, o código abaixo depois do botão de login
+- Inserir no index.php do GLPI, o código abaixo após o load do template de login **_TemplateRenderer_**
 ```php 
 require_once ('glpi-uspoauth/botao-login.php');
 ```
-
-![Código inserido](https://github.com/stifdrp/readme-images/blob/main/insert-code-glpi-uspoauth.png?raw=true)
-
 
 - Criar uma cópia do config_example.php para config.php e setar as variáveis do seu ambiente
 ```php

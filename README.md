@@ -18,10 +18,10 @@ Para usar a autenticação do USP oAuth com o GLPI faça o seguinte:
 git clone git@github.com:stifdrp/glpi-uspoauth.git
 ```
 
-- Faça a instalação da biblioteca de senha única via composer. Para mais detalhes acesse: *[uspdev/senhaunica](https://github.com/uspdev/senhaunica)*.
+- Faça a instalação das bibliotecas e dependências via composer, no projeto foi utilizado o uspdev/senhaunica. Para mais detalhes acesse: *[uspdev/senhaunica](https://github.com/uspdev/senhaunica)*.
 
 ```
-composer require uspdev/senhaunica:2.0
+composer install
 ```
  
 - Inserir no index.php do GLPI, o código abaixo após o load do template de login **_TemplateRenderer_**
@@ -40,14 +40,3 @@ $callback_id = 'SEU CALLBACK ID';
 $unidade = "SIGLA DA SUA UNIDADE NO RETORNO DO OAUTH";
 $passwd_salt = "SEU SALT"; //usado para criar as senhas do usuário no banco do GLPI
 ```
-
-&nbsp;
-
-## Possíveis erros
-
-- Se aparecer o seguinte erro:
-> ```php
-> OAuthException: Unexpected result from the server "https://uspdigital.usp.br/wsusuario/oauth/request_token" () while requesting a request tokenobject(OAuthException2)
-> ```
-> 
-> Use a variável `$regex_http_1dot1` na expressão if da linha 477 do arquivo `library/OAuthRequester.php`
